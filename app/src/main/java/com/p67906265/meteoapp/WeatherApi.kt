@@ -3,52 +3,97 @@ package com.p67906265.meteoapp
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
-data class HourPoint(val hour: String, val temp: Double)
+data class HourPoint(val hour: String, val temp: Double, val code: Int)
+data class DayPoint(val date: String, val maxTemp: Double, val minTemp: Double, val code: Int)
 
 data class WeatherData(
+    val cityName: String,
     val currentTemp: Double,
     val currentCode: Int,
-    val hourly: List<HourPoint>
+    val feelsLike: Double,
+    val hourly: List<HourPoint>,
+    val daily: List<DayPoint>
 )
+
+data class CityResult(val name: String, val admin: String, val country: String, val lat: Double, val lon: Double)
 
 object WeatherApi {
 
-    fun fetch(lat: Double, lon: Double): WeatherData {
-        val url = URL(
-            "https://api.open-meteo.com/v1/forecast" +
-                "?latitude=$lat&longitude=$lon" +
-                "&current=temperature_2m,weather_code" +
-                "&hourly=temperature_2m" +
-                "&forecast_days=1&timezone=auto"
-        )
+    private fun get(urlStr: String): String {
+        val url = URL(urlStr)
         val conn = url.openConnection() as HttpURLConnection
         conn.requestMethod = "GET"
         conn.connectTimeout = 10000
         conn.readTimeout = 10000
+        return conn.inputStream.bufferedReader().use { it.readText() }
+    }
 
-        val text = conn.inputStream.bufferedReader().use { it.readText() }
+    fun searchCity(query: String): List<CityResult> {
+        val q = URLEncoder.encode(query, "UTF-8")
+        val text = get("https://geocoding-api.open-meteo.com/v1/search?name=$q&count=8&language=it&format=json")
+        val json = JSONObject(text)
+        if (!json.has("results")) return emptyList()
+        val results = json.getJSONArray("results")
+        val list = mutableListOf<CityResult>()
+        for (i in 0 until results.length()) {
+            val r = results.getJSONObject(i)
+            list.add(
+                CityResult(
+                    name = r.getString("name"),
+                    admin = r.optString("admin1", ""),
+                    country = r.optString("country", ""),
+                    lat = r.getDouble("latitude"),
+                    lon = r.getDouble("longitude")
+                )
+            )
+        }
+        return list
+    }
+
+    fun fetch(lat: Double, lon: Double, cityName: String): WeatherData {
+        val text = get(
+            "https://api.open-meteo.com/v1/forecast" +
+                "?latitude=$lat&longitude=$lon" +
+                "&current=temperature_2m,weather_code,apparent_temperature" +
+                "&hourly=temperature_2m,weather_code" +
+                "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
+                "&forecast_days=7&timezone=auto"
+        )
         val json = JSONObject(text)
 
         val current = json.getJSONObject("current")
         val currentTemp = current.getDouble("temperature_2m")
         val currentCode = current.getInt("weather_code")
+        val feelsLike = current.optDouble("apparent_temperature", currentTemp)
 
         val hourly = json.getJSONObject("hourly")
         val times = hourly.getJSONArray("time")
         val temps = hourly.getJSONArray("temperature_2m")
+        val codes = hourly.getJSONArray("weather_code")
 
-        val points = mutableListOf<HourPoint>()
+        val hourPoints = mutableListOf<HourPoint>()
         for (i in 0 until times.length()) {
-            val timeStr = times.getString(i) // e.g. 2026-08-29T14:00
+            val timeStr = times.getString(i)
             val hourLabel = timeStr.substringAfter("T")
-            points.add(HourPoint(hourLabel, temps.getDouble(i)))
+            hourPoints.add(HourPoint(hourLabel, temps.getDouble(i), codes.getInt(i)))
         }
 
-        return WeatherData(currentTemp, currentCode, points)
+        val daily = json.getJSONObject("daily")
+        val dTimes = daily.getJSONArray("time")
+        val dMax = daily.getJSONArray("temperature_2m_max")
+        val dMin = daily.getJSONArray("temperature_2m_min")
+        val dCodes = daily.getJSONArray("weather_code")
+
+        val dayPoints = mutableListOf<DayPoint>()
+        for (i in 0 until dTimes.length()) {
+            dayPoints.add(DayPoint(dTimes.getString(i), dMax.getDouble(i), dMin.getDouble(i), dCodes.getInt(i)))
+        }
+
+        return WeatherData(cityName, currentTemp, currentCode, feelsLike, hourPoints, dayPoints)
     }
 
-    /** Testo descrittivo semplificato dal WMO weather code */
     fun describe(code: Int): String = when (code) {
         0 -> "Sereno"
         1, 2 -> "Poco nuvoloso"
@@ -60,5 +105,31 @@ object WeatherApi {
         80, 81, 82 -> "Rovesci"
         95, 96, 99 -> "Temporale"
         else -> "Variabile"
+    }
+
+    /** Categoria usata per scegliere sfondo/icona */
+    enum class Category { CLEAR, CLOUDY, RAIN, STORM, SNOW, FOG }
+
+    fun category(code: Int): Category = when {
+        code == 0 || code == 1 -> Category.CLEAR
+        code == 2 || code == 3 -> Category.CLOUDY
+        code == 45 || code == 48 -> Category.FOG
+        code in 51..67 || code in 80..82 -> Category.RAIN
+        code in 71..77 -> Category.SNOW
+        code in 95..99 -> Category.STORM
+        else -> Category.CLOUDY
+    }
+
+    fun dayLabel(isoDate: String): String {
+        // isoDate formato yyyy-MM-dd
+        return try {
+            val parts = isoDate.split("-")
+            val cal = java.util.Calendar.getInstance()
+            cal.set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt())
+            val days = arrayOf("Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab")
+            days[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1]
+        } catch (e: Exception) {
+            isoDate
+        }
     }
 }
