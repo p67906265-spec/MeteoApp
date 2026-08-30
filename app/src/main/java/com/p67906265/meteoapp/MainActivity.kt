@@ -576,7 +576,7 @@ html,body{margin:0;padding:0;background:#0D0F1F;}
 <button id="playbtn">⏸ Pausa</button>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-var map = L.map('map').setView([$lat, $lon], 7);
+var map = L.map('map').setView([$lat, $lon], 6);
 setTimeout(function() { map.invalidateSize(); }, 300);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
 
@@ -589,7 +589,7 @@ var timer = null;
 function showFrame(i) {
   if (radarLayer) map.removeLayer(radarLayer);
   var f = frames[i];
-  radarLayer = L.tileLayer(f.host + f.path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.75 });
+  radarLayer = L.tileLayer(f.host + f.path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.75, maxNativeZoom: 6 });
   radarLayer.addTo(map);
 }
 
