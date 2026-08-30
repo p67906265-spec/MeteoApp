@@ -440,47 +440,18 @@ fun WeatherGlyph(code: Int, palette: WeatherPalette, size: androidx.compose.ui.u
         val cy = w / 2f
         when (category) {
             WeatherApi.Category.CLEAR -> {
-                // bagliore soffuso dietro al sole
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0xFFFFD98A).copy(alpha = 0.55f), Color.Transparent),
-                        center = Offset(cx, cy),
-                        radius = w * 0.55f
-                    ),
-                    radius = w * 0.5f,
-                    center = Offset(cx, cy)
-                )
-                // raggi con punte arrotondate e lunghezza alternata
-                for (i in 0 until 8) {
-                    val angle = Math.toRadians((i * 45).toDouble())
-                    val len = if (i % 2 == 0) 0.5f else 0.44f
-                    val x1 = cx + (w * 0.32f) * cos(angle).toFloat()
-                    val y1 = cy + (w * 0.32f) * sin(angle).toFloat()
-                    val x2 = cx + (w * len) * cos(angle).toFloat()
-                    val y2 = cy + (w * len) * sin(angle).toFloat()
-                    drawLine(Color(0xFFFFB84A), Offset(x1, y1), Offset(x2, y2), strokeWidth = w * 0.045f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-                }
-                // disco solare con gradiente e piccolo riflesso
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0xFFFFE08A), Color(0xFFFFB84A)),
-                        center = Offset(cx - w * 0.06f, cy - w * 0.06f),
-                        radius = w * 0.32f
-                    ),
-                    radius = w * 0.27f,
-                    center = Offset(cx, cy)
-                )
-                drawCircle(color = Color.White.copy(alpha = 0.5f), radius = w * 0.06f, center = Offset(cx - w * 0.09f, cy - w * 0.09f))
+                drawPuffySun(cx, cy, w, withFace = true)
             }
             WeatherApi.Category.CLOUDY, WeatherApi.Category.FOG -> {
-                drawCloud(cx, cy, w)
+                drawPuffyCloud(cx, cy, w)
             }
             WeatherApi.Category.RAIN -> {
-                drawCloud(cx, cy - w * 0.05f, w, darker = true)
-                val drop = Brush.verticalGradient(listOf(Color(0xFF8FC1EE), Color(0xFF4E86C4)))
+                drawPuffySun(cx - w * 0.14f, cy - w * 0.12f, w * 0.62f, withFace = false)
+                drawPuffyCloud(cx + w * 0.02f, cy + w * 0.02f, w * 0.92f)
+                val drop = Brush.verticalGradient(listOf(Color(0xFF9FCCF2), Color(0xFF4E86C4)))
                 for (i in -1..1) {
-                    val bx = cx + i * w * 0.16f
-                    val by = cy + w * 0.20f
+                    val bx = cx + i * w * 0.17f
+                    val by = cy + w * 0.28f
                     val path = androidx.compose.ui.graphics.Path().apply {
                         moveTo(bx, by)
                         cubicTo(bx - w * 0.05f, by + w * 0.12f, bx - w * 0.035f, by + w * 0.2f, bx, by + w * 0.22f)
@@ -488,50 +459,121 @@ fun WeatherGlyph(code: Int, palette: WeatherPalette, size: androidx.compose.ui.u
                         close()
                     }
                     drawPath(path, drop)
+                    drawCircle(Color.White.copy(alpha = 0.5f), radius = w * 0.01f, center = Offset(bx - w * 0.012f, by + w * 0.08f))
                 }
             }
             WeatherApi.Category.STORM -> {
-                drawCloud(cx, cy - w * 0.08f, w, darker = true, tint = Color(0xFFC9C0E8))
+                drawPuffyCloud(cx, cy - w * 0.04f, w, tint = Color(0xFFCBC2EA), shadowTint = Color(0xFF6E63A8))
                 val boltColor = Brush.verticalGradient(listOf(Color(0xFFFFE58A), Color(0xFFFFB84A)))
                 val path = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(cx + w * 0.04f, cy + w * 0.08f)
-                    lineTo(cx - w * 0.07f, cy + w * 0.30f)
-                    lineTo(cx + w * 0.01f, cy + w * 0.24f)
-                    lineTo(cx - w * 0.03f, cy + w * 0.44f)
-                    lineTo(cx + w * 0.15f, cy + w * 0.18f)
-                    lineTo(cx + w * 0.03f, cy + w * 0.22f)
+                    moveTo(cx + w * 0.04f, cy + w * 0.10f)
+                    lineTo(cx - w * 0.07f, cy + w * 0.32f)
+                    lineTo(cx + w * 0.01f, cy + w * 0.26f)
+                    lineTo(cx - w * 0.03f, cy + w * 0.46f)
+                    lineTo(cx + w * 0.15f, cy + w * 0.20f)
+                    lineTo(cx + w * 0.03f, cy + w * 0.24f)
                     close()
                 }
                 drawPath(path, boltColor)
             }
             WeatherApi.Category.SNOW -> {
-                drawCloud(cx, cy - w * 0.05f, w)
+                drawPuffyCloud(cx, cy - w * 0.04f, w)
                 for (i in -1..1) {
-                    drawSnowflake(cx + i * w * 0.16f, cy + w * 0.24f, w * 0.045f)
+                    drawSnowflake(cx + i * w * 0.17f, cy + w * 0.28f, w * 0.045f)
                 }
             }
         }
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCloud(
-    cx: Float, cy: Float, w: Float, darker: Boolean = false, tint: Color = Color(0xFFF3F5FA)
+/** Sole in stile "3D puffy": sfera lucida con luce direzionale, alone morbido e faccina sorridente opzionale. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPuffySun(cx: Float, cy: Float, w: Float, withFace: Boolean) {
+    // alone soffuso
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0xFFFFD98A).copy(alpha = 0.5f), Color.Transparent),
+            center = Offset(cx, cy),
+            radius = w * 0.58f
+        ),
+        radius = w * 0.52f,
+        center = Offset(cx, cy)
+    )
+    // raggi tozzi e arrotondati
+    for (i in 0 until 8) {
+        val angle = Math.toRadians((i * 45).toDouble())
+        val x1 = cx + (w * 0.30f) * cos(angle).toFloat()
+        val y1 = cy + (w * 0.30f) * sin(angle).toFloat()
+        val x2 = cx + (w * 0.40f) * cos(angle).toFloat()
+        val y2 = cy + (w * 0.40f) * sin(angle).toFloat()
+        drawLine(Color(0xFFFFB84A), Offset(x1, y1), Offset(x2, y2), strokeWidth = w * 0.06f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+    }
+    // sfera solare lucida (gradiente diagonale che simula luce dall'alto a sinistra)
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0xFFFFF0C2), Color(0xFFFFCB5C), Color(0xFFF2A93B)),
+            center = Offset(cx - w * 0.08f, cy - w * 0.08f),
+            radius = w * 0.34f
+        ),
+        radius = w * 0.28f,
+        center = Offset(cx, cy)
+    )
+    // riflesso lucido
+    drawCircle(color = Color.White.copy(alpha = 0.6f), radius = w * 0.07f, center = Offset(cx - w * 0.1f, cy - w * 0.1f))
+
+    if (withFace) {
+        val eyeColor = Color(0xFF8A5A1E)
+        drawCircle(eyeColor, radius = w * 0.018f, center = Offset(cx - w * 0.07f, cy - w * 0.01f))
+        drawCircle(eyeColor, radius = w * 0.018f, center = Offset(cx + w * 0.07f, cy - w * 0.01f))
+        val smile = androidx.compose.ui.graphics.Path().apply {
+            moveTo(cx - w * 0.06f, cy + w * 0.06f)
+            quadraticTo(cx, cy + w * 0.11f, cx + w * 0.06f, cy + w * 0.06f)
+        }
+        drawPath(smile, color = eyeColor, style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.015f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+    }
+}
+
+/** Nuvola in stile "3D puffy": lobi con luce direzionale e ombra proiettata morbida sotto. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPuffyCloud(
+    cx: Float, cy: Float, w: Float, tint: Color = Color(0xFFFFFFFF), shadowTint: Color = Color(0xFFB9C0D4)
 ) {
-    val shadow = if (darker) tint.copy(alpha = 0.85f).let { blend(it, Color(0xFF8890A8), 0.35f) } else Color(0xFFDDE1EC)
-    // ombra posteriore per dare profondità
-    drawCircle(color = shadow, radius = w * 0.21f, center = Offset(cx - w * 0.14f, cy + w * 0.08f))
-    drawCircle(color = shadow, radius = w * 0.17f, center = Offset(cx + w * 0.20f, cy + w * 0.09f))
-    // corpo principale della nuvola con gradiente
-    val cloudBrush = Brush.verticalGradient(listOf(Color.White, tint))
-    drawCircle(brush = cloudBrush, radius = w * 0.20f, center = Offset(cx - w * 0.15f, cy + w * 0.04f))
-    drawCircle(brush = cloudBrush, radius = w * 0.26f, center = Offset(cx + w * 0.04f, cy - w * 0.06f))
-    drawCircle(brush = cloudBrush, radius = w * 0.19f, center = Offset(cx + w * 0.23f, cy + w * 0.05f))
+    // ombra proiettata morbida sotto la nuvola
+    drawOval(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0xFF6B7080).copy(alpha = 0.16f), Color.Transparent),
+            center = Offset(cx, cy + w * 0.28f),
+            radius = w * 0.32f
+        ),
+        topLeft = Offset(cx - w * 0.3f, cy + w * 0.18f),
+        size = androidx.compose.ui.geometry.Size(w * 0.6f, w * 0.2f)
+    )
+
+    fun lobe(dx: Float, dy: Float, r: Float) {
+        val center = Offset(cx + dx, cy + dy)
+        // luce dall'alto a sinistra su ogni lobo per un effetto "gonfio"
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(Color.White, tint, blend(tint, shadowTint, 0.4f)),
+                center = Offset(center.x - r * 0.35f, center.y - r * 0.35f),
+                radius = r * 1.5f
+            ),
+            radius = r,
+            center = center
+        )
+    }
+
+    lobe(-w * 0.17f, w * 0.06f, w * 0.17f)
+    lobe(w * 0.19f, w * 0.06f, w * 0.16f)
+    lobe(w * 0.01f, -w * 0.06f, w * 0.23f)
+
+    // base morbida della nuvola
     drawRoundRect(
-        brush = cloudBrush,
-        topLeft = Offset(cx - w * 0.3f, cy),
-        size = androidx.compose.ui.geometry.Size(w * 0.58f, w * 0.16f),
+        brush = Brush.verticalGradient(listOf(tint, blend(tint, shadowTint, 0.25f))),
+        topLeft = Offset(cx - w * 0.28f, cy + w * 0.01f),
+        size = androidx.compose.ui.geometry.Size(w * 0.56f, w * 0.15f),
         cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f)
     )
+    // riflesso lucido in alto
+    drawCircle(color = Color.White.copy(alpha = 0.55f), radius = w * 0.06f, center = Offset(cx - w * 0.06f, cy - w * 0.13f))
 }
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSnowflake(cx: Float, cy: Float, r: Float) {
