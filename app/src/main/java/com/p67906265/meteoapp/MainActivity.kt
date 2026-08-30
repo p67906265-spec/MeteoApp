@@ -143,19 +143,21 @@ fun MeteoScreen(activity: MainActivity) {
             .background(Brush.verticalGradient(listOf(palette.top, palette.bottom)))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            TopBar(
-                cityName = weather?.cityName ?: cityName,
-                onSearchClick = { showSearch = true },
-                onLocationClick = {
-                    val loc = activity.getLastKnownLocation()
-                    if (loc != null) {
-                        lat = loc.latitude
-                        lon = loc.longitude
-                        cityName = "Posizione attuale"
-                        loadWeather()
+            if (tab == 0) {
+                TopBar(
+                    cityName = weather?.cityName ?: cityName,
+                    onSearchClick = { showSearch = true },
+                    onLocationClick = {
+                        val loc = activity.getLastKnownLocation()
+                        if (loc != null) {
+                            lat = loc.latitude
+                            lon = loc.longitude
+                            cityName = "Posizione attuale"
+                            loadWeather()
+                        }
                     }
-                }
-            )
+                )
+            }
 
             Box(modifier = Modifier.weight(1f)) {
                 when (tab) {
