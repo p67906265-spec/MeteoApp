@@ -10,14 +10,21 @@ import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -28,6 +35,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -36,6 +44,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -214,9 +223,23 @@ fun CitySearchOverlay(onDismiss: () -> Unit, onCitySelected: (CityResult) -> Uni
     var results by remember { mutableStateOf<List<CityResult>>(emptyList()) }
     val scope = rememberCoroutineScope()
 
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xEE1B1F3B)).padding(20.dp)) {
-        Column {
-            Spacer(Modifier.height(24.dp))
+    Box(modifier = Modifier.fillMaxSize()) {
+        // scrim trasparente: tocco fuori chiude la tendina, senza scurire tutto lo schermo
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { onDismiss() }
+        )
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 84.dp, start = 20.dp, end = 20.dp)
+                .zIndex(10f)
+        ) {
             OutlinedTextField(
                 value = query,
                 onValueChange = {
@@ -232,29 +255,80 @@ fun CitySearchOverlay(onDismiss: () -> Unit, onCitySelected: (CityResult) -> Uni
                 label = { Text("Cerca una città") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color.White,
-                    unfocusedBorderColor = Color(0xFF7A82AE),
-                    focusedLabelColor = Color.White,
-                    unfocusedLabelColor = Color(0xFF7A82AE)
+                    focusedTextColor = Color(0xFF23262F),
+                    unfocusedTextColor = Color(0xFF23262F),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Color(0xFF6C5CE7),
+                    unfocusedBorderColor = Color(0xFFDADEEA),
+                    focusedLabelColor = Color(0xFF6C5CE7),
+                    unfocusedLabelColor = Color(0xFF8A8F9C)
                 ),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(16.dp))
             )
-            Spacer(Modifier.height(16.dp))
-            results.forEach { city ->
-                Text(
-                    text = "${city.name}${if (city.admin.isNotEmpty()) ", ${city.admin}" else ""} — ${city.country}",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
-                        .clip(RoundedCornerShape(8.dp)).background(Color(0xFF2A2F52))
-                        .clickable { onCitySelected(city) }.padding(12.dp)
-                )
+
+            AnimatedVisibility(
+                visible = results.isNotEmpty(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .shadow(elevation = 14.dp, shape = RoundedCornerShape(18.dp)),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                ) {
+                    Column {
+                        results.forEachIndexed { i, city ->
+                            CityResultRow(city = city, onClick = { onCitySelected(city) })
+                            if (i != results.lastIndex) {
+                                HorizontalDivider(color = Color(0xFFEFF0F5), thickness = 1.dp)
+                            }
+                        }
+                    }
+                }
             }
-            Spacer(Modifier.height(24.dp))
-            TextButton(onClick = onDismiss) { Text("Chiudi", color = Color(0xFF9FA6D0)) }
+        }
+    }
+}
+
+@Composable
+fun CityResultRow(city: CityResult, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF6C5CE7).copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Filled.LocationOn,
+                contentDescription = null,
+                tint = Color(0xFF6C5CE7),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(city.name, color = Color(0xFF23262F), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            val subtitle = listOf(city.admin, city.country).filter { it.isNotEmpty() }.joinToString(", ")
+            if (subtitle.isNotEmpty()) {
+                Text(subtitle, color = Color(0xFF8A8F9C), fontSize = 12.sp)
+            }
         }
     }
 }
@@ -306,6 +380,7 @@ fun MainCard(weather: WeatherData, palette: WeatherPalette) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(elevation = 18.dp, shape = RoundedCornerShape(28.dp), clip = false)
             .clip(RoundedCornerShape(28.dp))
             .background(Brush.linearGradient(listOf(palette.cardTop, palette.cardBottom)))
             .padding(24.dp)
