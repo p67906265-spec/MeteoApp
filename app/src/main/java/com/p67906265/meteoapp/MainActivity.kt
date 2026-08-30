@@ -564,7 +564,8 @@ private fun radarHtml(lat: Double, lon: Double): String = """
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-html,body,#map{height:100%;margin:0;background:#0D0F1F;}
+html,body{margin:0;padding:0;background:#0D0F1F;}
+#map{position:fixed;top:0;left:0;right:0;bottom:0;background:#0D0F1F;}
 #playbtn{position:absolute;bottom:16px;left:16px;z-index:999;background:#fff;border:none;border-radius:20px;padding:10px 16px;font-family:sans-serif;font-weight:bold;}
 </style>
 </head>
@@ -574,6 +575,7 @@ html,body,#map{height:100%;margin:0;background:#0D0F1F;}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 var map = L.map('map').setView([$lat, $lon], 7);
+setTimeout(function() { map.invalidateSize(); }, 300);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
 
 var radarLayer = null;
