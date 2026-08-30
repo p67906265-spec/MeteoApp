@@ -200,23 +200,7 @@ fun TopBar(cityName: String, onSearchClick: () -> Unit, onLocationClick: () -> U
             }
         }
     }
-    Row(
-        modifier = Modifier.padding(horizontal = 20.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0x22000000))
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color(0xFF6C5CE7), modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(cityName, color = Color(0xFF23262F), fontSize = 15.sp, fontWeight = FontWeight.Medium)
-        }
-    }
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(4.dp))
 }
 
 @Composable
@@ -390,7 +374,7 @@ fun MainCard(weather: WeatherData, palette: WeatherPalette) {
         Column {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text("Adesso", color = Color(0xFFEFF0FF), fontSize = 15.sp)
+                    Text(weather.cityName, color = Color(0xFFEFF0FF), fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     Text("${weather.currentTemp.toInt()}°", color = Color.White, fontSize = 52.sp, fontWeight = FontWeight.Bold)
                     Text(WeatherApi.describe(weather.currentCode), color = Color(0xFFEFF0FF), fontSize = 17.sp)
                 }
@@ -437,59 +421,116 @@ fun WeatherGlyph(code: Int, palette: WeatherPalette, size: androidx.compose.ui.u
         val cy = w / 2f
         when (category) {
             WeatherApi.Category.CLEAR -> {
-                // raggi
-                val rayColor = Color(0xFFFFB84A)
+                // bagliore soffuso dietro al sole
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0xFFFFD98A).copy(alpha = 0.55f), Color.Transparent),
+                        center = Offset(cx, cy),
+                        radius = w * 0.55f
+                    ),
+                    radius = w * 0.5f,
+                    center = Offset(cx, cy)
+                )
+                // raggi con punte arrotondate e lunghezza alternata
                 for (i in 0 until 8) {
                     val angle = Math.toRadians((i * 45).toDouble())
-                    val x1 = cx + (w * 0.34f) * cos(angle).toFloat()
-                    val y1 = cy + (w * 0.34f) * sin(angle).toFloat()
-                    val x2 = cx + (w * 0.48f) * cos(angle).toFloat()
-                    val y2 = cy + (w * 0.48f) * sin(angle).toFloat()
-                    drawLine(rayColor, Offset(x1, y1), Offset(x2, y2), strokeWidth = w * 0.05f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    val len = if (i % 2 == 0) 0.5f else 0.44f
+                    val x1 = cx + (w * 0.32f) * cos(angle).toFloat()
+                    val y1 = cy + (w * 0.32f) * sin(angle).toFloat()
+                    val x2 = cx + (w * len) * cos(angle).toFloat()
+                    val y2 = cy + (w * len) * sin(angle).toFloat()
+                    drawLine(Color(0xFFFFB84A), Offset(x1, y1), Offset(x2, y2), strokeWidth = w * 0.045f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
                 }
-                drawCircle(color = Color(0xFFFFC94A), radius = w * 0.28f, center = Offset(cx, cy))
+                // disco solare con gradiente e piccolo riflesso
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0xFFFFE08A), Color(0xFFFFB84A)),
+                        center = Offset(cx - w * 0.06f, cy - w * 0.06f),
+                        radius = w * 0.32f
+                    ),
+                    radius = w * 0.27f,
+                    center = Offset(cx, cy)
+                )
+                drawCircle(color = Color.White.copy(alpha = 0.5f), radius = w * 0.06f, center = Offset(cx - w * 0.09f, cy - w * 0.09f))
             }
             WeatherApi.Category.CLOUDY, WeatherApi.Category.FOG -> {
-                drawCircle(color = Color(0xFFF0F2F8), radius = w * 0.22f, center = Offset(cx - w * 0.16f, cy + w * 0.06f))
-                drawCircle(color = Color(0xFFF0F2F8), radius = w * 0.28f, center = Offset(cx + w * 0.05f, cy - w * 0.05f))
-                drawCircle(color = Color(0xFFF0F2F8), radius = w * 0.20f, center = Offset(cx + w * 0.24f, cy + w * 0.07f))
+                drawCloud(cx, cy, w)
             }
             WeatherApi.Category.RAIN -> {
-                drawCircle(color = Color(0xFFEFF2FF), radius = w * 0.22f, center = Offset(cx - w * 0.1f, cy - w * 0.08f))
-                drawCircle(color = Color(0xFFEFF2FF), radius = w * 0.26f, center = Offset(cx + w * 0.1f, cy - w * 0.1f))
-                val drop = Color(0xFF6FA8DC)
+                drawCloud(cx, cy - w * 0.05f, w, darker = true)
+                val drop = Brush.verticalGradient(listOf(Color(0xFF8FC1EE), Color(0xFF4E86C4)))
                 for (i in -1..1) {
-                    drawLine(
-                        drop,
-                        Offset(cx + i * w * 0.16f, cy + w * 0.14f),
-                        Offset(cx + i * w * 0.16f - 4, cy + w * 0.30f),
-                        strokeWidth = w * 0.035f, cap = androidx.compose.ui.graphics.StrokeCap.Round
-                    )
+                    val bx = cx + i * w * 0.16f
+                    val by = cy + w * 0.20f
+                    val path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(bx, by)
+                        cubicTo(bx - w * 0.05f, by + w * 0.12f, bx - w * 0.035f, by + w * 0.2f, bx, by + w * 0.22f)
+                        cubicTo(bx + w * 0.035f, by + w * 0.2f, bx + w * 0.05f, by + w * 0.12f, bx, by)
+                        close()
+                    }
+                    drawPath(path, drop)
                 }
             }
             WeatherApi.Category.STORM -> {
-                drawCircle(color = Color(0xFFD8D2EE), radius = w * 0.24f, center = Offset(cx, cy - w * 0.08f))
-                val boltColor = Color(0xFFFFD25C)
+                drawCloud(cx, cy - w * 0.08f, w, darker = true, tint = Color(0xFFC9C0E8))
+                val boltColor = Brush.verticalGradient(listOf(Color(0xFFFFE58A), Color(0xFFFFB84A)))
                 val path = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(cx + w * 0.02f, cy + w * 0.05f)
-                    lineTo(cx - w * 0.08f, cy + w * 0.28f)
-                    lineTo(cx, cy + w * 0.22f)
-                    lineTo(cx - w * 0.04f, cy + w * 0.42f)
-                    lineTo(cx + w * 0.14f, cy + w * 0.16f)
-                    lineTo(cx + w * 0.02f, cy + w * 0.2f)
+                    moveTo(cx + w * 0.04f, cy + w * 0.08f)
+                    lineTo(cx - w * 0.07f, cy + w * 0.30f)
+                    lineTo(cx + w * 0.01f, cy + w * 0.24f)
+                    lineTo(cx - w * 0.03f, cy + w * 0.44f)
+                    lineTo(cx + w * 0.15f, cy + w * 0.18f)
+                    lineTo(cx + w * 0.03f, cy + w * 0.22f)
                     close()
                 }
                 drawPath(path, boltColor)
             }
             WeatherApi.Category.SNOW -> {
-                drawCircle(color = Color(0xFFF0F2F8), radius = w * 0.24f, center = Offset(cx, cy - w * 0.08f))
+                drawCloud(cx, cy - w * 0.05f, w)
                 for (i in -1..1) {
-                    drawCircle(Color.White, radius = w * 0.03f, center = Offset(cx + i * w * 0.16f, cy + w * 0.22f))
+                    drawSnowflake(cx + i * w * 0.16f, cy + w * 0.24f, w * 0.045f)
                 }
             }
         }
     }
 }
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCloud(
+    cx: Float, cy: Float, w: Float, darker: Boolean = false, tint: Color = Color(0xFFF3F5FA)
+) {
+    val shadow = if (darker) tint.copy(alpha = 0.85f).let { blend(it, Color(0xFF8890A8), 0.35f) } else Color(0xFFDDE1EC)
+    // ombra posteriore per dare profondità
+    drawCircle(color = shadow, radius = w * 0.21f, center = Offset(cx - w * 0.14f, cy + w * 0.08f))
+    drawCircle(color = shadow, radius = w * 0.17f, center = Offset(cx + w * 0.20f, cy + w * 0.09f))
+    // corpo principale della nuvola con gradiente
+    val cloudBrush = Brush.verticalGradient(listOf(Color.White, tint))
+    drawCircle(brush = cloudBrush, radius = w * 0.20f, center = Offset(cx - w * 0.15f, cy + w * 0.04f))
+    drawCircle(brush = cloudBrush, radius = w * 0.26f, center = Offset(cx + w * 0.04f, cy - w * 0.06f))
+    drawCircle(brush = cloudBrush, radius = w * 0.19f, center = Offset(cx + w * 0.23f, cy + w * 0.05f))
+    drawRoundRect(
+        brush = cloudBrush,
+        topLeft = Offset(cx - w * 0.3f, cy),
+        size = androidx.compose.ui.geometry.Size(w * 0.58f, w * 0.16f),
+        cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f)
+    )
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSnowflake(cx: Float, cy: Float, r: Float) {
+    val color = Color(0xFF9FC3E8)
+    for (i in 0 until 3) {
+        val angle = Math.toRadians((i * 60).toDouble())
+        val dx = (r * cos(angle)).toFloat()
+        val dy = (r * sin(angle)).toFloat()
+        drawLine(color, Offset(cx - dx, cy - dy), Offset(cx + dx, cy + dy), strokeWidth = r * 0.28f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+    }
+}
+
+private fun blend(a: Color, b: Color, ratio: Float): Color = Color(
+    red = a.red + (b.red - a.red) * ratio,
+    green = a.green + (b.green - a.green) * ratio,
+    blue = a.blue + (b.blue - a.blue) * ratio,
+    alpha = 1f
+)
 
 @Composable
 fun HourlyRow(hourly: List<HourPoint>, count: Int) {

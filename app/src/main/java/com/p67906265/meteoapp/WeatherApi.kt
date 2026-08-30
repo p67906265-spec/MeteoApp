@@ -5,7 +5,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-data class HourPoint(val hour: String, val temp: Double, val code: Int)
+data class HourPoint(val hour: String, val temp: Double, val code: Int, val dateTime: java.time.LocalDateTime)
 data class DayPoint(val date: String, val maxTemp: Double, val minTemp: Double, val code: Int)
 
 data class WeatherData(
@@ -85,8 +85,14 @@ object WeatherApi {
         for (i in 0 until times.length()) {
             val timeStr = times.getString(i)
             val hourLabel = timeStr.substringAfter("T")
-            hourPoints.add(HourPoint(hourLabel, temps.getDouble(i), codes.getInt(i)))
+            val dt = java.time.LocalDateTime.parse(timeStr)
+            hourPoints.add(HourPoint(hourLabel, temps.getDouble(i), codes.getInt(i), dt))
         }
+
+        val now = java.time.LocalDateTime.now()
+        val nextHour = now.withMinute(0).withSecond(0).withNano(0).plusHours(1)
+        val futureHourPoints = hourPoints.filter { !it.dateTime.isBefore(nextHour) }
+            .ifEmpty { hourPoints }
 
         val daily = json.getJSONObject("daily")
         val dTimes = daily.getJSONArray("time")
@@ -99,7 +105,7 @@ object WeatherApi {
             dayPoints.add(DayPoint(dTimes.getString(i), dMax.getDouble(i), dMin.getDouble(i), dCodes.getInt(i)))
         }
 
-        return WeatherData(cityName, currentTemp, currentCode, feelsLike, windSpeed, windDirection, humidity, pressure, hourPoints, dayPoints)
+        return WeatherData(cityName, currentTemp, currentCode, feelsLike, windSpeed, windDirection, humidity, pressure, futureHourPoints, dayPoints)
     }
 
     fun describe(code: Int): String = when (code) {
