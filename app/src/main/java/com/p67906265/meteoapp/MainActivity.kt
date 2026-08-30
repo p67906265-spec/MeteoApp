@@ -54,8 +54,13 @@ import kotlin.math.sin
 
 class MainActivity : ComponentActivity() {
 
+    var permissionGrantedTick by mutableStateOf(0)
+        private set
+
     private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) permissionGrantedTick++
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -132,6 +137,20 @@ fun MeteoScreen(activity: MainActivity) {
             cityName = "Posizione attuale"
         }
         loadWeather()
+    }
+
+    // Se il permesso viene concesso dopo l'avvio (es. prima installazione),
+    // riprova a leggere la posizione e ricarica il meteo.
+    LaunchedEffect(activity.permissionGrantedTick) {
+        if (activity.permissionGrantedTick > 0) {
+            val loc = activity.getLastKnownLocation()
+            if (loc != null) {
+                lat = loc.latitude
+                lon = loc.longitude
+                cityName = "Posizione attuale"
+                loadWeather()
+            }
+        }
     }
 
     val category = weather?.let { WeatherApi.category(it.currentCode) } ?: WeatherApi.Category.CLEAR
