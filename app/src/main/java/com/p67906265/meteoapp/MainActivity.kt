@@ -526,7 +526,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPuffySun(cx: Fl
         drawCircle(eyeColor, radius = w * 0.018f, center = Offset(cx + w * 0.07f, cy - w * 0.01f))
         val smile = androidx.compose.ui.graphics.Path().apply {
             moveTo(cx - w * 0.06f, cy + w * 0.06f)
-            quadraticTo(cx, cy + w * 0.11f, cx + w * 0.06f, cy + w * 0.06f)
+            quadraticBezierTo(cx, cy + w * 0.11f, cx + w * 0.06f, cy + w * 0.06f)
         }
         drawPath(smile, color = eyeColor, style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.015f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
     }
