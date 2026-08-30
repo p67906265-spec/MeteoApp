@@ -13,6 +13,10 @@ data class WeatherData(
     val currentTemp: Double,
     val currentCode: Int,
     val feelsLike: Double,
+    val windSpeed: Double,
+    val windDirection: Int,
+    val humidity: Int,
+    val pressure: Double,
     val hourly: List<HourPoint>,
     val daily: List<DayPoint>
 )
@@ -56,7 +60,7 @@ object WeatherApi {
         val text = get(
             "https://api.open-meteo.com/v1/forecast" +
                 "?latitude=$lat&longitude=$lon" +
-                "&current=temperature_2m,weather_code,apparent_temperature" +
+                "&current=temperature_2m,weather_code,apparent_temperature,wind_speed_10m,wind_direction_10m,relative_humidity_2m,surface_pressure" +
                 "&hourly=temperature_2m,weather_code" +
                 "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
                 "&forecast_days=7&timezone=auto"
@@ -67,6 +71,10 @@ object WeatherApi {
         val currentTemp = current.getDouble("temperature_2m")
         val currentCode = current.getInt("weather_code")
         val feelsLike = current.optDouble("apparent_temperature", currentTemp)
+        val windSpeed = current.optDouble("wind_speed_10m", 0.0)
+        val windDirection = current.optInt("wind_direction_10m", 0)
+        val humidity = current.optInt("relative_humidity_2m", 0)
+        val pressure = current.optDouble("surface_pressure", 0.0)
 
         val hourly = json.getJSONObject("hourly")
         val times = hourly.getJSONArray("time")
@@ -91,13 +99,13 @@ object WeatherApi {
             dayPoints.add(DayPoint(dTimes.getString(i), dMax.getDouble(i), dMin.getDouble(i), dCodes.getInt(i)))
         }
 
-        return WeatherData(cityName, currentTemp, currentCode, feelsLike, hourPoints, dayPoints)
+        return WeatherData(cityName, currentTemp, currentCode, feelsLike, windSpeed, windDirection, humidity, pressure, hourPoints, dayPoints)
     }
 
     fun describe(code: Int): String = when (code) {
         0 -> "Sereno"
         1, 2 -> "Poco nuvoloso"
-        3 -> "Nuvoloso"
+        3 -> "Coperto"
         45, 48 -> "Nebbia"
         51, 53, 55 -> "Pioviggine"
         61, 63, 65 -> "Pioggia"
@@ -107,7 +115,6 @@ object WeatherApi {
         else -> "Variabile"
     }
 
-    /** Categoria usata per scegliere sfondo/icona */
     enum class Category { CLEAR, CLOUDY, RAIN, STORM, SNOW, FOG }
 
     fun category(code: Int): Category = when {
@@ -120,16 +127,36 @@ object WeatherApi {
         else -> Category.CLOUDY
     }
 
-    fun dayLabel(isoDate: String): String {
-        // isoDate formato yyyy-MM-dd
+    fun windDirLabel(deg: Int): String {
+        val dirs = arrayOf("N", "NE", "E", "SE", "S", "SO", "O", "NO")
+        val idx = (((deg % 360) + 360) % 360 / 45.0).let { Math.round(it).toInt() % 8 }
+        return dirs[idx]
+    }
+
+    fun dayLabel(isoDate: String, index: Int): String {
+        if (index == 0) return "Oggi"
         return try {
             val parts = isoDate.split("-")
             val cal = java.util.Calendar.getInstance()
             cal.set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt())
-            val days = arrayOf("Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab")
+            val days = arrayOf("Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato")
             days[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1]
         } catch (e: Exception) {
             isoDate
         }
+    }
+
+    fun shortDate(isoDate: String): String {
+        return try {
+            val parts = isoDate.split("-")
+            "${parts[2]} ${monthAbbr(parts[1].toInt())}"
+        } catch (e: Exception) {
+            isoDate
+        }
+    }
+
+    private fun monthAbbr(m: Int): String {
+        val months = arrayOf("gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic")
+        return months[(m - 1).coerceIn(0, 11)]
     }
 }
