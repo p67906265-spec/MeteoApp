@@ -11,9 +11,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -30,15 +40,21 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -47,10 +63,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.cos
 import kotlin.math.sin
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
 
@@ -93,6 +112,7 @@ class MainActivity : ComponentActivity() {
 }
 
 data class WeatherPalette(val top: Color, val bottom: Color, val cardTop: Color, val cardBottom: Color, val accent: Color)
+data class FavoriteCity(val name: String, val lat: Double, val lon: Double)
 
 fun paletteFor(category: WeatherApi.Category): WeatherPalette = when (category) {
     WeatherApi.Category.CLEAR -> WeatherPalette(Color(0xFFEFF3FF), Color(0xFFE3E8FB), Color(0xFF7B90E8), Color(0xFFA98CE0), Color(0xFFFFB84A))
@@ -110,10 +130,16 @@ fun MeteoScreen(activity: MainActivity) {
     var tab by remember { mutableStateOf(0) }
     var showSearch by remember { mutableStateOf(false) }
     var showAllHours by remember { mutableStateOf(false) }
+    var showFavorites by remember { mutableStateOf(false) }
+    var showIntro by remember { mutableStateOf(true) }
+    var introElementsVisible by remember { mutableStateOf(false) }
 
     var lat by remember { mutableStateOf(41.9028) }
     var lon by remember { mutableStateOf(12.4964) }
     var cityName by remember { mutableStateOf("Roma") }
+    val context = LocalContext.current
+    var favorites by remember { mutableStateOf(loadFavorites(context)) }
+    var favoriteMessage by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
 
@@ -156,16 +182,26 @@ fun MeteoScreen(activity: MainActivity) {
     val category = weather?.let { WeatherApi.category(it.currentCode) } ?: WeatherApi.Category.CLEAR
     val palette = paletteFor(category)
 
+    LaunchedEffect(Unit) {
+        introElementsVisible = true
+        delay(1650)
+        introElementsVisible = false
+        delay(350)
+        showIntro = false
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(palette.top, palette.bottom)))
     ) {
+        WeatherBackground(category)
         Column(modifier = Modifier.fillMaxSize()) {
             if (tab == 0) {
                 TopBar(
                     cityName = weather?.cityName ?: cityName,
                     onSearchClick = { showSearch = true },
+                    onFavoritesClick = { showFavorites = true },
                     onLocationClick = {
                         val loc = activity.getLastKnownLocation()
                         if (loc != null) {
@@ -199,11 +235,174 @@ fun MeteoScreen(activity: MainActivity) {
                 }
             )
         }
+
+        AnimatedVisibility(
+            visible = showFavorites,
+            enter = fadeIn() + slideInHorizontally(initialOffsetX = { it }),
+            exit = fadeOut() + slideOutHorizontally(targetOffsetX = { it }),
+            modifier = Modifier.align(Alignment.TopEnd).zIndex(50f)
+        ) {
+            FavoritesPanel(
+                favorites = favorites,
+                currentName = weather?.cityName ?: cityName,
+                message = favoriteMessage,
+                onDismiss = { showFavorites = false; favoriteMessage = null },
+                onAddCurrent = {
+                    val current = FavoriteCity(weather?.cityName ?: cityName, lat, lon)
+                    when {
+                        favorites.any { it.name == current.name && it.lat == current.lat && it.lon == current.lon } ->
+                            favoriteMessage = "Questa città è già tra i preferiti"
+                        favorites.size >= 5 -> favoriteMessage = "Puoi salvare al massimo 5 città"
+                        else -> {
+                            favorites = favorites + current
+                            saveFavorites(context, favorites)
+                            favoriteMessage = "${current.name} aggiunta"
+                        }
+                    }
+                },
+                onSelect = { favorite ->
+                    lat = favorite.lat
+                    lon = favorite.lon
+                    cityName = favorite.name
+                    showFavorites = false
+                    favoriteMessage = null
+                    loadWeather()
+                },
+                onDelete = { favorite ->
+                    favorites = favorites.filterNot { it == favorite }
+                    saveFavorites(context, favorites)
+                }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showIntro,
+            enter = fadeIn(),
+            exit = fadeOut(animationSpec = tween(350)),
+            modifier = Modifier.zIndex(100f)
+        ) {
+            WeatherIntro(visible = introElementsVisible)
+        }
     }
 }
 
 @Composable
-fun TopBar(cityName: String, onSearchClick: () -> Unit, onLocationClick: () -> Unit) {
+fun WeatherBackground(category: WeatherApi.Category) {
+    val transition = rememberInfiniteTransition(label = "weatherBackground")
+    val drift by transition.animateFloat(
+        initialValue = -0.15f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(tween(18000, easing = LinearEasing), RepeatMode.Restart),
+        label = "cloudDrift"
+    )
+    val fall by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(2200, easing = LinearEasing), RepeatMode.Restart),
+        label = "precipitation"
+    )
+
+    Canvas(Modifier.fillMaxSize().alpha(0.28f)) {
+        when (category) {
+            WeatherApi.Category.CLEAR -> {
+                drawCircle(
+                    brush = Brush.radialGradient(listOf(Color(0xFFFFD15C), Color.Transparent)),
+                    radius = size.minDimension * 0.42f,
+                    center = Offset(size.width * 0.84f, size.height * 0.12f)
+                )
+            }
+            WeatherApi.Category.CLOUDY, WeatherApi.Category.FOG -> {
+                drawPuffyCloud(size.width * drift, size.height * 0.18f, size.width * 0.5f, tint = Color.White.copy(alpha = 0.72f))
+                drawPuffyCloud(size.width * (1.15f - drift), size.height * 0.5f, size.width * 0.38f, tint = Color.White.copy(alpha = 0.55f))
+            }
+            WeatherApi.Category.RAIN, WeatherApi.Category.STORM -> {
+                for (i in 0 until 18) {
+                    val x = i * 71f % size.width
+                    val y = (i * 137f + fall * size.height) % size.height
+                    drawLine(Color(0xFF4E86C4), Offset(x, y), Offset(x - 7f, y + 28f), 4f)
+                }
+                if (category == WeatherApi.Category.STORM) {
+                    drawCircle(Color(0xFFFFD25C).copy(alpha = 0.35f), size.minDimension * 0.25f, Offset(size.width * 0.75f, size.height * 0.22f))
+                }
+            }
+            WeatherApi.Category.SNOW -> {
+                for (i in 0 until 22) {
+                    val x = i * 83f % size.width
+                    val y = (i * 113f + fall * size.height) % size.height
+                    drawCircle(Color.White, 5f + (i % 3), Offset(x, y))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WeatherIntro(visible: Boolean) {
+    val iconScale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.82f,
+        animationSpec = tween(700, easing = FastOutSlowInEasing),
+        label = "introIconScale"
+    )
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(420),
+        label = "introAlpha"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF6C7EE1), Color(0xFF9A82DF), Color(0xFFE8ECFF))
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.alpha(contentAlpha)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(150.dp)
+                    .scale(iconScale),
+                contentAlignment = Alignment.Center
+            ) {
+                WeatherGlyph(0, paletteFor(WeatherApi.Category.CLEAR), size = 132.dp)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(width = 88.dp, height = 54.dp)
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        drawPuffyCloud(
+                            cx = size.width * 0.5f,
+                            cy = size.height * 0.48f,
+                            w = size.width * 0.95f
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(22.dp))
+            Text(
+                "Meteo",
+                color = Color.White,
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Il tempo, a colpo d’occhio",
+                color = Color.White.copy(alpha = 0.88f),
+                fontSize = 15.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun TopBar(cityName: String, onSearchClick: () -> Unit, onFavoritesClick: () -> Unit, onLocationClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -211,6 +410,9 @@ fun TopBar(cityName: String, onSearchClick: () -> Unit, onLocationClick: () -> U
     ) {
         Text("Meteo", color = Color(0xFF23262F), fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onFavoritesClick) {
+                Icon(Icons.Filled.Star, contentDescription = "Città preferite", tint = Color(0xFF6C5CE7))
+            }
             IconButton(onClick = onLocationClick) {
                 Icon(Icons.Filled.LocationOn, contentDescription = "Posizione", tint = Color(0xFF6C5CE7))
             }
@@ -220,6 +422,93 @@ fun TopBar(cityName: String, onSearchClick: () -> Unit, onLocationClick: () -> U
         }
     }
     Spacer(Modifier.height(4.dp))
+}
+
+@Composable
+fun FavoritesPanel(
+    favorites: List<FavoriteCity>,
+    currentName: String,
+    message: String?,
+    onDismiss: () -> Unit,
+    onAddCurrent: () -> Unit,
+    onSelect: (FavoriteCity) -> Unit,
+    onDelete: (FavoriteCity) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxHeight()
+            .widthIn(max = 330.dp)
+            .padding(start = 28.dp)
+            .shadow(18.dp, RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)),
+        shape = RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xF7F8F9FF))
+    ) {
+        Column(Modifier.fillMaxSize().padding(20.dp)) {
+            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                Text("Città preferite", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Color(0xFF23262F))
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Filled.Close, contentDescription = "Chiudi", tint = Color(0xFF6C5CE7))
+                }
+            }
+            Text("${favorites.size}/5 città salvate", color = Color(0xFF747A89), fontSize = 13.sp)
+            Spacer(Modifier.height(18.dp))
+            Button(
+                onClick = onAddCurrent,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C5CE7))
+            ) {
+                Icon(Icons.Filled.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Aggiungi $currentName")
+            }
+            message?.let {
+                Text(it, color = Color(0xFF6C5CE7), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+            }
+            Spacer(Modifier.height(16.dp))
+            if (favorites.isEmpty()) {
+                Text("Aggiungi una città per richiamarla rapidamente.", color = Color(0xFF747A89), fontSize = 14.sp)
+            } else {
+                favorites.forEach { city ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 5.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White)
+                            .clickable { onSelect(city) }
+                            .padding(start = 14.dp, top = 8.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color(0xFF6C5CE7), modifier = Modifier.size(20.dp))
+                        Text(city.name, modifier = Modifier.weight(1f).padding(start = 10.dp), color = Color(0xFF23262F), fontWeight = FontWeight.Medium)
+                        IconButton(onClick = { onDelete(city) }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Elimina ${city.name}", tint = Color(0xFF9A9EAA), modifier = Modifier.size(20.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun loadFavorites(context: android.content.Context): List<FavoriteCity> = try {
+    val raw = context.getSharedPreferences("meteo_preferences", android.content.Context.MODE_PRIVATE)
+        .getString("favorite_cities", "[]") ?: "[]"
+    val array = JSONArray(raw)
+    List(array.length()) { i ->
+        val item = array.getJSONObject(i)
+        FavoriteCity(item.getString("name"), item.getDouble("lat"), item.getDouble("lon"))
+    }.take(5)
+} catch (_: Exception) { emptyList() }
+
+private fun saveFavorites(context: android.content.Context, favorites: List<FavoriteCity>) {
+    val array = JSONArray()
+    favorites.take(5).forEach { city ->
+        array.put(JSONObject().put("name", city.name).put("lat", city.lat).put("lon", city.lon))
+    }
+    context.getSharedPreferences("meteo_preferences", android.content.Context.MODE_PRIVATE)
+        .edit().putString("favorite_cities", array.toString()).apply()
 }
 
 @Composable
