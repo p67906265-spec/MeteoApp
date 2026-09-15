@@ -115,12 +115,12 @@ data class WeatherPalette(val top: Color, val bottom: Color, val cardTop: Color,
 data class FavoriteCity(val name: String, val lat: Double, val lon: Double)
 
 fun paletteFor(category: WeatherApi.Category): WeatherPalette = when (category) {
-    WeatherApi.Category.CLEAR -> WeatherPalette(Color(0xFFEFF3FF), Color(0xFFE3E8FB), Color(0xFF7B90E8), Color(0xFFA98CE0), Color(0xFFFFB84A))
-    WeatherApi.Category.CLOUDY -> WeatherPalette(Color(0xFFEEF0F4), Color(0xFFDDE1EA), Color(0xFF8891A6), Color(0xFFAAB2C4), Color(0xFFE7EAF0))
-    WeatherApi.Category.RAIN -> WeatherPalette(Color(0xFFE7EEF6), Color(0xFFD3DEEA), Color(0xFF4C6A93), Color(0xFF6E88AE), Color(0xFF6FA8DC))
-    WeatherApi.Category.STORM -> WeatherPalette(Color(0xFFE7E4F2), Color(0xFFD3CDE8), Color(0xFF423263), Color(0xFF5E4A85), Color(0xFFFFD25C))
-    WeatherApi.Category.SNOW -> WeatherPalette(Color(0xFFF0F3F7), Color(0xFFE1E7ED), Color(0xFF8FA3B8), Color(0xFFB6C6D6), Color(0xFFFFFFFF))
-    WeatherApi.Category.FOG -> WeatherPalette(Color(0xFFEDEDEF), Color(0xFFDBDCE0), Color(0xFF7A7E88), Color(0xFF9C9FA8), Color(0xFFD4D6DC))
+    WeatherApi.Category.CLEAR -> WeatherPalette(Color(0xFF9CCFFF), Color(0xFFDCCBFF), Color(0xFF637FE5), Color(0xFFA66FDE), Color(0xFFFFB84A))
+    WeatherApi.Category.CLOUDY -> WeatherPalette(Color(0xFFB9C7DB), Color(0xFFE2E7F0), Color(0xFF68758F), Color(0xFF9BA7BD), Color(0xFFE7EAF0))
+    WeatherApi.Category.RAIN -> WeatherPalette(Color(0xFF7897B8), Color(0xFFB9CEDF), Color(0xFF385B86), Color(0xFF6787AD), Color(0xFF70B7F2))
+    WeatherApi.Category.STORM -> WeatherPalette(Color(0xFF48415F), Color(0xFF82739C), Color(0xFF302344), Color(0xFF594274), Color(0xFFFFD25C))
+    WeatherApi.Category.SNOW -> WeatherPalette(Color(0xFFB9D8EE), Color(0xFFF0F8FC), Color(0xFF7798B7), Color(0xFFA9C4DA), Color(0xFFFFFFFF))
+    WeatherApi.Category.FOG -> WeatherPalette(Color(0xFFB9BFC9), Color(0xFFE3E5E9), Color(0xFF666D78), Color(0xFF9298A3), Color(0xFFD4D6DC))
 }
 
 @Composable
@@ -302,7 +302,7 @@ fun WeatherBackground(category: WeatherApi.Category) {
         label = "precipitation"
     )
 
-    Canvas(Modifier.fillMaxSize().alpha(0.28f)) {
+    Canvas(Modifier.fillMaxSize().alpha(0.52f)) {
         when (category) {
             WeatherApi.Category.CLEAR -> {
                 drawCircle(
@@ -310,6 +310,8 @@ fun WeatherBackground(category: WeatherApi.Category) {
                     radius = size.minDimension * 0.42f,
                     center = Offset(size.width * 0.84f, size.height * 0.12f)
                 )
+                drawPuffyCloud(size.width * drift, size.height * 0.34f, size.width * 0.38f, tint = Color.White.copy(alpha = 0.5f))
+                drawPuffyCloud(size.width * (1.1f - drift), size.height * 0.7f, size.width * 0.3f, tint = Color.White.copy(alpha = 0.36f))
             }
             WeatherApi.Category.CLOUDY, WeatherApi.Category.FOG -> {
                 drawPuffyCloud(size.width * drift, size.height * 0.18f, size.width * 0.5f, tint = Color.White.copy(alpha = 0.72f))
@@ -1018,8 +1020,39 @@ document.getElementById('playbtn').addEventListener('click', function() {
 
 @Composable
 fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
-    NavigationBar(containerColor = Color(0xFFF5F6FA)) {
-        NavigationBarItem(selected = selected == 0, onClick = { onSelect(0) }, icon = {}, label = { Text("Meteo") })
-        NavigationBarItem(selected = selected == 1, onClick = { onSelect(1) }, icon = {}, label = { Text("Radar") })
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 26.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        TransparentBottomButton("Meteo", selected == 0, Modifier.weight(1f)) { onSelect(0) }
+        TransparentBottomButton("Radar", selected == 1, Modifier.weight(1f)) { onSelect(1) }
+    }
+}
+
+@Composable
+private fun TransparentBottomButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            Modifier
+                .width(if (selected) 42.dp else 0.dp)
+                .height(4.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF6C5CE7))
+        )
+        Spacer(Modifier.height(5.dp))
+        Text(
+            label,
+            color = if (selected) Color(0xFF352C72) else Color(0xFF404453),
+            fontSize = 15.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+        )
     }
 }
