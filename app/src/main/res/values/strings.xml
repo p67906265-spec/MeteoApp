@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">MeteoApp</string>
     <string name="widget_description">Orologio e meteo grande</string>
+    <string name="forecast_widget_description">Meteo panoramico con previsioni di quattro giorni</string>
 </resources>

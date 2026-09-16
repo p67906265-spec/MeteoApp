@@ -157,6 +157,7 @@ fun MeteoScreen(activity: MainActivity) {
                 weather = data
                 saveWidgetLocation(context, data.cityName, lat, lon)
                 WeatherWidgetProvider.refreshAll(context)
+                ForecastWidgetProvider.refreshAll(context)
             } catch (e: Exception) {
                 error = "Errore nel recupero dati: ${e.message}"
             }
