@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
+import android.location.Geocoder
 import android.os.Bundle
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
@@ -68,6 +69,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.cos
 import kotlin.math.sin
+import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -147,8 +149,14 @@ fun MeteoScreen(activity: MainActivity) {
         scope.launch {
             error = null
             try {
-                val data = withContext(Dispatchers.IO) { WeatherApi.fetch(lat, lon, cityName) }
+                val resolvedName = withContext(Dispatchers.IO) {
+                    if (cityName == "Posizione attuale") resolveLocationName(context, lat, lon) else cityName
+                }
+                val data = withContext(Dispatchers.IO) { WeatherApi.fetch(lat, lon, resolvedName) }
+                cityName = resolvedName
                 weather = data
+                saveWidgetLocation(context, data.cityName, lat, lon)
+                WeatherWidgetProvider.refreshAll(context)
             } catch (e: Exception) {
                 error = "Errore nel recupero dati: ${e.message}"
             }
@@ -284,6 +292,14 @@ fun MeteoScreen(activity: MainActivity) {
             WeatherIntro(visible = introElementsVisible)
         }
     }
+}
+
+@Suppress("DEPRECATION")
+private fun resolveLocationName(context: android.content.Context, lat: Double, lon: Double): String = try {
+    val address = Geocoder(context, Locale.ITALIAN).getFromLocation(lat, lon, 1)?.firstOrNull()
+    address?.locality ?: address?.subAdminArea ?: "Posizione attuale"
+} catch (_: Exception) {
+    "Posizione attuale"
 }
 
 @Composable
@@ -511,6 +527,15 @@ private fun saveFavorites(context: android.content.Context, favorites: List<Favo
     }
     context.getSharedPreferences("meteo_preferences", android.content.Context.MODE_PRIVATE)
         .edit().putString("favorite_cities", array.toString()).apply()
+}
+
+private fun saveWidgetLocation(context: android.content.Context, cityName: String, lat: Double, lon: Double) {
+    context.getSharedPreferences("meteo_preferences", android.content.Context.MODE_PRIVATE)
+        .edit()
+        .putString("widget_city", cityName)
+        .putLong("widget_lat", java.lang.Double.doubleToRawLongBits(lat))
+        .putLong("widget_lon", java.lang.Double.doubleToRawLongBits(lon))
+        .apply()
 }
 
 @Composable

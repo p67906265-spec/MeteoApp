@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">MeteoApp</string>
+    <string name="widget_description">Orologio e meteo grande</string>
 </resources>
