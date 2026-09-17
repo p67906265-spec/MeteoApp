@@ -27,15 +27,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                val prefs = context.getSharedPreferences("meteo_preferences", Context.MODE_PRIVATE)
-                val city = prefs.getString("widget_city", "Roma") ?: "Roma"
-                val lat = java.lang.Double.longBitsToDouble(
-                    prefs.getLong("widget_lat", java.lang.Double.doubleToRawLongBits(41.9028))
-                )
-                val lon = java.lang.Double.longBitsToDouble(
-                    prefs.getLong("widget_lon", java.lang.Double.doubleToRawLongBits(12.4964))
-                )
-                val weather = WeatherApi.fetch(lat, lon, city)
+                val place = WidgetLocationResolver.resolve(context)
+                val weather = WeatherApi.fetch(place.lat, place.lon, place.city)
                 ids.forEach { id -> manager.updateAppWidget(id, buildViews(context, weather)) }
             } catch (_: Exception) {
                 ids.forEach { id -> manager.updateAppWidget(id, errorViews(context)) }

@@ -104,12 +104,9 @@ class MainActivity : ComponentActivity() {
             != PackageManager.PERMISSION_GRANTED
         ) return null
         val lm = getSystemService(LOCATION_SERVICE) as LocationManager
-        val providers = lm.getProviders(true)
-        for (p in providers) {
-            val loc = lm.getLastKnownLocation(p) ?: continue
-            return loc
-        }
-        return null
+        return lm.getProviders(true)
+            .mapNotNull { provider -> runCatching { lm.getLastKnownLocation(provider) }.getOrNull() }
+            .maxByOrNull { it.time }
     }
 }
 
