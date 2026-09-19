@@ -1041,10 +1041,9 @@ private fun radarHtml(lat: Double, lon: Double): String = """
 <style>
 html,body{margin:0;padding:0;background:#0D0F1F;}
 #map{position:fixed;top:0;left:0;right:0;bottom:0;background:#0D0F1F;}
-#playbtn{display:block;background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.8);border-radius:20px;padding:10px 16px;font-family:sans-serif;font-weight:bold;color:#20232c;box-shadow:0 3px 12px rgba(0,0,0,.24);cursor:pointer;}
 #frametime{min-width:112px;margin-bottom:24px;background:rgba(13,15,31,.84);border:1px solid rgba(255,255,255,.7);border-radius:20px;padding:8px 13px;color:#fff;font-family:sans-serif;text-align:center;box-shadow:0 3px 12px rgba(0,0,0,.3);}
 #clock{font-size:17px;font-weight:700;line-height:20px;}
-#framekind{font-size:9px;font-weight:800;letter-spacing:1.2px;color:#b9dcff;line-height:12px;}
+#framekind{min-height:12px;font-size:9px;font-weight:800;letter-spacing:1.2px;color:#b9dcff;line-height:12px;}
 #frametime.latest #framekind{color:#70f0b2;}
 </style>
 </head>
@@ -1055,15 +1054,6 @@ html,body{margin:0;padding:0;background:#0D0F1F;}
 var map = L.map('map').setView([$lat, $lon], 6);
 setTimeout(function() { map.invalidateSize(); }, 300);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
-
-var playControl = L.control({ position: 'bottomleft' });
-playControl.onAdd = function() {
-  var wrapper = L.DomUtil.create('div');
-  wrapper.innerHTML = '<button id="playbtn">⏸ Pausa</button>';
-  L.DomEvent.disableClickPropagation(wrapper);
-  return wrapper;
-};
-playControl.addTo(map);
 
 var timeControl = L.control({ position: 'bottomright' });
 timeControl.onAdd = function() {
@@ -1078,7 +1068,6 @@ timeControl.addTo(map);
 var radarLayer = null;
 var frames = [];
 var frameIndex = 0;
-var playing = true;
 var timer = null;
 var lastObservedIndex = -1;
 
@@ -1090,7 +1079,7 @@ function updateFrameTime(f, i) {
   var box = document.getElementById('frametime');
   var kind = document.getElementById('framekind');
   box.classList.toggle('latest', i === lastObservedIndex);
-  kind.innerText = i === lastObservedIndex ? 'ULTIMA' : (f.forecast ? 'PREVISIONE' : 'PRECEDENTE');
+  kind.innerText = i === lastObservedIndex ? 'ULTIMA' : (f.forecast ? 'PREVISIONE' : '');
 }
 
 function showFrame(i) {
@@ -1124,13 +1113,6 @@ fetch('https://api.rainviewer.com/public/weather-maps.json')
     startPlaying();
   });
 
-document.getElementById('playbtn').addEventListener('click', function(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  playing = !playing;
-  if (playing) { startPlaying(); this.innerText = '⏸ Pausa'; }
-  else { clearInterval(timer); this.innerText = '▶ Play'; }
-});
 </script>
 </body>
 </html>
