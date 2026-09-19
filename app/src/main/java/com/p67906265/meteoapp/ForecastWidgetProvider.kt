@@ -18,8 +18,15 @@ import java.util.Locale
 
 class ForecastWidgetProvider : AppWidgetProvider() {
 
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        WeatherWidgetRefreshScheduler.schedule(context)
+        WeatherWidgetRefreshScheduler.refreshNow(context)
+    }
+
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         super.onUpdate(context, manager, ids)
+        WeatherWidgetRefreshScheduler.schedule(context)
         if (ids.isEmpty()) return
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {

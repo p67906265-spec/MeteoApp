@@ -40,5 +40,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MeteoApp-v1.7-widget-posizione-dinamica
+          name: MeteoApp-v1.8-widget-autoaggiornamento
           path: app/build/outputs/apk/release/app-release.apk

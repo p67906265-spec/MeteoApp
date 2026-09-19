@@ -1,12 +1,17 @@
 package com.p67906265.meteoapp
 
 import android.Manifest
+import android.app.AlertDialog
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.location.Geocoder
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -80,22 +85,74 @@ class MainActivity : ComponentActivity() {
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) permissionGrantedTick++
+            if (granted) {
+                permissionGrantedTick++
+                requestBackgroundLocationIfNeeded()
+            }
+        }
+
+    private val requestBackgroundPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                WeatherWidgetRefreshScheduler.refreshNow(this)
+            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        WeatherWidgetRefreshScheduler.schedule(this)
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
             != PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        } else {
+            requestBackgroundLocationIfNeeded()
         }
 
         setContent {
             MaterialTheme(colorScheme = lightColorScheme()) {
                 MeteoScreen(activity = this)
             }
+        }
+    }
+
+    private fun requestBackgroundLocationIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        ) return
+
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+            requestBackgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Aggiornamento automatico del widget")
+            .setMessage(
+                "Per aggiornare il meteo quando cambi luogo, apri Autorizzazioni, scegli Posizione e attiva Consenti sempre."
+            )
+            .setNegativeButton("Non ora", null)
+            .setPositiveButton("Apri impostazioni") { _, _ ->
+                startActivity(
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:$packageName")
+                    )
+                )
+            }
+            .show()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            WeatherWidgetRefreshScheduler.refreshNow(this)
         }
     }
 
