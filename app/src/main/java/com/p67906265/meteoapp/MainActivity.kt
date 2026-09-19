@@ -1041,12 +1041,17 @@ private fun radarHtml(lat: Double, lon: Double): String = """
 <style>
 html,body{margin:0;padding:0;background:#0D0F1F;}
 #map{position:fixed;top:0;left:0;right:0;bottom:0;background:#0D0F1F;}
-#playbtn{position:absolute;bottom:16px;left:16px;z-index:999;background:#fff;border:none;border-radius:20px;padding:10px 16px;font-family:sans-serif;font-weight:bold;}
+#playbtn{position:absolute;bottom:16px;left:16px;z-index:999;background:rgba(255,255,255,.88);border:1px solid rgba(255,255,255,.7);border-radius:20px;padding:10px 16px;font-family:sans-serif;font-weight:bold;color:#20232c;box-shadow:0 3px 12px rgba(0,0,0,.24);}
+#frametime{position:absolute;bottom:16px;right:16px;z-index:999;min-width:112px;background:rgba(13,15,31,.78);border:1px solid rgba(255,255,255,.55);border-radius:20px;padding:8px 13px;color:#fff;font-family:sans-serif;text-align:center;box-shadow:0 3px 12px rgba(0,0,0,.28);backdrop-filter:blur(5px);}
+#clock{font-size:17px;font-weight:700;line-height:20px;}
+#framekind{font-size:9px;font-weight:800;letter-spacing:1.2px;color:#b9dcff;line-height:12px;}
+#frametime.latest #framekind{color:#70f0b2;}
 </style>
 </head>
 <body>
 <div id="map"></div>
 <button id="playbtn">⏸ Pausa</button>
+<div id="frametime"><div id="clock">🕒 --:--</div><div id="framekind">CARICAMENTO</div></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 var map = L.map('map').setView([$lat, $lon], 6);
@@ -1058,12 +1063,25 @@ var frames = [];
 var frameIndex = 0;
 var playing = true;
 var timer = null;
+var lastObservedIndex = -1;
+
+function updateFrameTime(f, i) {
+  var date = new Date(f.time * 1000);
+  var hour = String(date.getHours()).padStart(2, '0');
+  var minute = String(date.getMinutes()).padStart(2, '0');
+  document.getElementById('clock').innerText = '🕒 ' + hour + ':' + minute;
+  var box = document.getElementById('frametime');
+  var kind = document.getElementById('framekind');
+  box.classList.toggle('latest', i === lastObservedIndex);
+  kind.innerText = i === lastObservedIndex ? 'ULTIMA' : (f.forecast ? 'PREVISIONE' : 'PRECEDENTE');
+}
 
 function showFrame(i) {
   if (radarLayer) map.removeLayer(radarLayer);
   var f = frames[i];
   radarLayer = L.tileLayer(f.host + f.path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.75, maxNativeZoom: 6 });
   radarLayer.addTo(map);
+  updateFrameTime(f, i);
 }
 
 function tick() {
@@ -1080,9 +1098,10 @@ function startPlaying() {
 fetch('https://api.rainviewer.com/public/weather-maps.json')
   .then(r => r.json())
   .then(data => {
-    var past = data.radar.past.map(function(fr) { return { path: fr.path, host: data.host }; });
-    var fut = (data.radar.nowcast || []).map(function(fr) { return { path: fr.path, host: data.host }; });
+    var past = data.radar.past.map(function(fr) { return { path: fr.path, host: data.host, time: fr.time, forecast: false }; });
+    var fut = (data.radar.nowcast || []).map(function(fr) { return { path: fr.path, host: data.host, time: fr.time, forecast: true }; });
     frames = past.concat(fut);
+    lastObservedIndex = past.length - 1;
     frameIndex = frames.length - 1;
     showFrame(frameIndex);
     startPlaying();
