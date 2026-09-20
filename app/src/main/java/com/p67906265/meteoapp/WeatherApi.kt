@@ -108,6 +108,19 @@ object WeatherApi {
         return WeatherData(cityName, currentTemp, currentCode, feelsLike, windSpeed, windDirection, humidity, pressure, futureHourPoints, dayPoints)
     }
 
+    fun fetchWithRetry(lat: Double, lon: Double, cityName: String): WeatherData {
+        var lastError: Exception? = null
+        repeat(2) { attempt ->
+            try {
+                return fetch(lat, lon, cityName)
+            } catch (error: Exception) {
+                lastError = error
+                if (attempt == 0) Thread.sleep(1_500L)
+            }
+        }
+        throw lastError ?: IllegalStateException("Dati meteo non disponibili")
+    }
+
     fun describe(code: Int): String = when (code) {
         0 -> "Sereno"
         1, 2 -> "Poco nuvoloso"

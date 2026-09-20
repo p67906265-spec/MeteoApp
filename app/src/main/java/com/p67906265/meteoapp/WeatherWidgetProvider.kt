@@ -35,7 +35,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val place = WidgetLocationResolver.resolve(context)
-                val weather = WeatherApi.fetch(place.lat, place.lon, place.city)
+                val weather = WeatherApi.fetchWithRetry(place.lat, place.lon, place.city)
                 ids.forEach { id -> manager.updateAppWidget(id, buildViews(context, weather)) }
             } catch (_: Exception) {
                 ids.forEach { id -> manager.updateAppWidget(id, errorViews(context)) }
@@ -62,10 +62,12 @@ class WeatherWidgetProvider : AppWidgetProvider() {
     }
 
     private fun errorViews(context: Context): RemoteViews = baseViews(context).apply {
+        val city = context.getSharedPreferences("meteo_preferences", Context.MODE_PRIVATE)
+            .getString("widget_city", "Roma") ?: "Roma"
         setTextViewText(R.id.widget_temperature, "--°")
         setTextViewText(R.id.widget_min_max, "")
-        setTextViewText(R.id.widget_condition, "Apri Meteo per aggiornare")
-        setTextViewText(R.id.widget_city, "Meteo")
+        setTextViewText(R.id.widget_condition, "Aggiornamento in attesa")
+        setTextViewText(R.id.widget_city, city)
         setTextViewText(R.id.widget_icon, "☁️")
         setTextViewText(R.id.widget_date, formattedDate())
     }
