@@ -119,6 +119,24 @@ class ForecastWidgetProvider : AppWidgetProvider() {
     } catch (_: Exception) { "–" }
 
     companion object {
+        suspend fun updateAllNow(context: Context): Boolean {
+            val manager = AppWidgetManager.getInstance(context)
+            val component = ComponentName(context, ForecastWidgetProvider::class.java)
+            val ids = manager.getAppWidgetIds(component)
+            if (ids.isEmpty()) return true
+
+            val provider = ForecastWidgetProvider()
+            return try {
+                val place = WidgetLocationResolver.resolve(context)
+                val weather = WeatherApi.fetchWithRetry(place.lat, place.lon, place.city)
+                ids.forEach { manager.updateAppWidget(it, provider.buildViews(context, weather)) }
+                true
+            } catch (_: Exception) {
+                ids.forEach { manager.updateAppWidget(it, provider.errorViews(context)) }
+                false
+            }
+        }
+
         fun refreshAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val component = ComponentName(context, ForecastWidgetProvider::class.java)

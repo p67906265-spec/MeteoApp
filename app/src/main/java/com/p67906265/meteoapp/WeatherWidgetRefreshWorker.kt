@@ -10,6 +10,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 class WeatherWidgetRefreshWorker(
@@ -17,12 +19,10 @@ class WeatherWidgetRefreshWorker(
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
 
-    override suspend fun doWork(): Result = try {
-        WeatherWidgetProvider.refreshAll(applicationContext)
-        ForecastWidgetProvider.refreshAll(applicationContext)
-        Result.success()
-    } catch (_: Exception) {
-        Result.retry()
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        val weatherUpdated = WeatherWidgetProvider.updateAllNow(applicationContext)
+        val forecastUpdated = ForecastWidgetProvider.updateAllNow(applicationContext)
+        if (weatherUpdated && forecastUpdated) Result.success() else Result.retry()
     }
 }
 

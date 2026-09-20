@@ -40,5 +40,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MeteoApp-v2.2-widget-avvio-autonomo
+          name: MeteoApp-v2.3-widget-background-fix
           path: app/build/outputs/apk/release/app-release.apk
