@@ -7,10 +7,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -26,23 +22,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         super.onUpdate(context, manager, ids)
         WeatherWidgetRefreshScheduler.schedule(context)
-        updateWidgets(context, manager, ids)
-    }
-
-    private fun updateWidgets(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        if (ids.isEmpty()) return
-        val pendingResult = goAsync()
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            try {
-                val place = WidgetLocationResolver.resolve(context)
-                val weather = WeatherApi.fetchWidgetWithRetry(place.lat, place.lon, place.city)
-                ids.forEach { id -> manager.updateAppWidget(id, buildViews(context, weather)) }
-            } catch (_: Exception) {
-                ids.forEach { id -> manager.updateAppWidget(id, errorViews(context)) }
-            } finally {
-                pendingResult.finish()
-            }
-        }
+        WeatherWidgetRefreshScheduler.refreshNow(context)
     }
 
     private fun buildViews(context: Context, weather: WeatherData): RemoteViews {

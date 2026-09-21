@@ -40,5 +40,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MeteoApp-v2.4-widget-meteo-leggero
+          name: MeteoApp-v2.5-widget-singolo-aggiornamento
           path: app/build/outputs/apk/release/app-release.apk
