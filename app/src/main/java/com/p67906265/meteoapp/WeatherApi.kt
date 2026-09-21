@@ -29,8 +29,8 @@ object WeatherApi {
         val url = URL(urlStr)
         val conn = url.openConnection() as HttpURLConnection
         conn.requestMethod = "GET"
-        conn.connectTimeout = 10000
-        conn.readTimeout = 10000
+        conn.connectTimeout = 15000
+        conn.readTimeout = 15000
         return conn.inputStream.bufferedReader().use { it.readText() }
     }
 
@@ -119,6 +119,64 @@ object WeatherApi {
             }
         }
         throw lastError ?: IllegalStateException("Dati meteo non disponibili")
+    }
+
+    /** Risposta ridotta per i widget: evita di scaricare centinaia di dati orari in background. */
+    fun fetchWidgetWithRetry(lat: Double, lon: Double, cityName: String): WeatherData {
+        var lastError: Exception? = null
+        repeat(3) { attempt ->
+            try {
+                return fetchWidget(lat, lon, cityName)
+            } catch (error: Exception) {
+                lastError = error
+                if (attempt < 2) Thread.sleep(2_000L)
+            }
+        }
+        throw lastError ?: IllegalStateException("Dati widget non disponibili")
+    }
+
+    private fun fetchWidget(lat: Double, lon: Double, cityName: String): WeatherData {
+        val text = get(
+            "https://api.open-meteo.com/v1/forecast" +
+                "?latitude=$lat&longitude=$lon" +
+                "&current=temperature_2m,weather_code" +
+                "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
+                "&forecast_days=5&timezone=auto"
+        )
+        val json = JSONObject(text)
+        val current = json.getJSONObject("current")
+        val currentTemp = current.getDouble("temperature_2m")
+        val currentCode = current.getInt("weather_code")
+
+        val dailyJson = json.getJSONObject("daily")
+        val dates = dailyJson.getJSONArray("time")
+        val maxTemps = dailyJson.getJSONArray("temperature_2m_max")
+        val minTemps = dailyJson.getJSONArray("temperature_2m_min")
+        val codes = dailyJson.getJSONArray("weather_code")
+        val days = mutableListOf<DayPoint>()
+        for (i in 0 until dates.length()) {
+            days.add(
+                DayPoint(
+                    dates.getString(i),
+                    maxTemps.getDouble(i),
+                    minTemps.getDouble(i),
+                    codes.getInt(i)
+                )
+            )
+        }
+
+        return WeatherData(
+            cityName = cityName,
+            currentTemp = currentTemp,
+            currentCode = currentCode,
+            feelsLike = currentTemp,
+            windSpeed = 0.0,
+            windDirection = 0,
+            humidity = 0,
+            pressure = 0.0,
+            hourly = emptyList(),
+            daily = days
+        )
     }
 
     fun describe(code: Int): String = when (code) {

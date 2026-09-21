@@ -35,7 +35,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val place = WidgetLocationResolver.resolve(context)
-                val weather = WeatherApi.fetchWithRetry(place.lat, place.lon, place.city)
+                val weather = WeatherApi.fetchWidgetWithRetry(place.lat, place.lon, place.city)
                 ids.forEach { id -> manager.updateAppWidget(id, buildViews(context, weather)) }
             } catch (_: Exception) {
                 ids.forEach { id -> manager.updateAppWidget(id, errorViews(context)) }
@@ -116,7 +116,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val provider = WeatherWidgetProvider()
             return try {
                 val place = WidgetLocationResolver.resolve(context)
-                val weather = WeatherApi.fetchWithRetry(place.lat, place.lon, place.city)
+                val weather = WeatherApi.fetchWidgetWithRetry(place.lat, place.lon, place.city)
                 ids.forEach { manager.updateAppWidget(it, provider.buildViews(context, weather)) }
                 true
             } catch (_: Exception) {
