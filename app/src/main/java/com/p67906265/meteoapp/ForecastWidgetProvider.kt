@@ -114,9 +114,16 @@ class ForecastWidgetProvider : AppWidgetProvider() {
                 val place = WidgetLocationResolver.resolve(context)
                 val weather = WeatherApi.fetchWidgetWithRetry(place.lat, place.lon, place.city)
                 ids.forEach { manager.updateAppWidget(it, provider.buildViews(context, weather)) }
+                context.getSharedPreferences("meteo_preferences", Context.MODE_PRIVATE)
+                    .edit().putBoolean("forecast_widget_has_valid_data", true).apply()
                 true
             } catch (_: Exception) {
-                ids.forEach { manager.updateAppWidget(it, provider.errorViews(context)) }
+                val hasValidData = context
+                    .getSharedPreferences("meteo_preferences", Context.MODE_PRIVATE)
+                    .getBoolean("forecast_widget_has_valid_data", false)
+                if (!hasValidData) {
+                    ids.forEach { manager.updateAppWidget(it, provider.errorViews(context)) }
+                }
                 false
             }
         }
