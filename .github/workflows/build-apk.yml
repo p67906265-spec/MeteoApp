@@ -40,5 +40,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MeteoApp-v2.6-widget-mantiene-ultimo-dato
+          name: MeteoApp-v2.7-widget-posizione-reale
           path: app/build/outputs/apk/release/app-release.apk

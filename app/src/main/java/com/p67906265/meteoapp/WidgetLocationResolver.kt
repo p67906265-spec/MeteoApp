@@ -10,6 +10,10 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.CancellationSignal
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.CurrentLocationRequest
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -36,11 +40,18 @@ object WidgetLocationResolver {
             )
         )
 
-        val location = freshLocation(context) ?: newestLastKnownLocation(context)
+        val location = fusedCurrentLocation(context)
+            ?: freshLocation(context)
+            ?: newestLastKnownLocation(context)
         if (location == null) return@withContext fallback
 
+        val previousLocation = Location("widget_cache").apply {
+            latitude = fallback.lat
+            longitude = fallback.lon
+        }
+        val movedMeters = location.distanceTo(previousLocation)
         val city = resolveCity(context, location.latitude, location.longitude)
-            ?: fallback.city.takeUnless { it == "Posizione attuale" }
+            ?: fallback.city.takeIf { movedMeters < 3_000 && it != "Posizione attuale" }
             ?: "Posizione attuale"
         val updated = WidgetPlace(city, location.latitude, location.longitude)
         prefs.edit()
@@ -49,6 +60,37 @@ object WidgetLocationResolver {
             .putLong("widget_lon", java.lang.Double.doubleToRawLongBits(updated.lon))
             .apply()
         updated
+    }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun fusedCurrentLocation(context: Context): Location? {
+        if (!hasLocationPermission(context)) return null
+        return withTimeoutOrNull(20_000L) {
+            suspendCancellableCoroutine { continuation ->
+                val cancellation = CancellationTokenSource()
+                continuation.invokeOnCancellation { cancellation.cancel() }
+                val request = CurrentLocationRequest.Builder()
+                    .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                    .setMaxUpdateAgeMillis(60_000L)
+                    .setDurationMillis(15_000L)
+                    .build()
+                try {
+                    LocationServices.getFusedLocationProviderClient(context)
+                        .getCurrentLocation(request, cancellation.token)
+                        .addOnSuccessListener { location ->
+                            if (continuation.isActive) continuation.resume(location)
+                        }
+                        .addOnFailureListener {
+                            if (continuation.isActive) continuation.resume(null)
+                        }
+                        .addOnCanceledListener {
+                            if (continuation.isActive) continuation.resume(null)
+                        }
+                } catch (_: Exception) {
+                    if (continuation.isActive) continuation.resume(null)
+                }
+            }
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -62,7 +104,7 @@ object WidgetLocationResolver {
         }
         if (providers.isEmpty()) return null
 
-        return withTimeoutOrNull(4_000L) {
+        return withTimeoutOrNull(12_000L) {
             coroutineScope {
                 providers.map { provider -> async { currentFromProvider(context, manager, provider) } }
                     .awaitAll()
