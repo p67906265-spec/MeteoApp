@@ -971,22 +971,22 @@ fun HourlyRow(hourly: List<HourPoint>, count: Int) {
         items(items) { p ->
             Column(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(Color(0x22000000))
-                    .padding(vertical = 14.dp, horizontal = 14.dp),
+                    .padding(vertical = 8.dp, horizontal = 13.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(p.hour.take(5), color = Color(0xFF23262F), fontSize = 12.sp)
-                Spacer(Modifier.height(8.dp))
-                WeatherGlyph(p.code, paletteFor(WeatherApi.category(p.code)), size = 32.dp)
-                Spacer(Modifier.height(5.dp))
+                Spacer(Modifier.height(4.dp))
+                WeatherGlyph(p.code, paletteFor(WeatherApi.category(p.code)), size = 28.dp)
+                Spacer(Modifier.height(2.dp))
                 Text(
                     "${p.precipitationProbability}%",
                     color = Color(0xFF376A9E),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
-                Spacer(Modifier.height(5.dp))
+                Spacer(Modifier.height(2.dp))
                 Text("${p.temp.toInt()}°", color = Color(0xFF23262F), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
