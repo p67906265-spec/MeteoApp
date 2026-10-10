@@ -979,7 +979,14 @@ fun HourlyRow(hourly: List<HourPoint>, count: Int) {
                 Text(p.hour.take(5), color = Color(0xFF23262F), fontSize = 12.sp)
                 Spacer(Modifier.height(8.dp))
                 WeatherGlyph(p.code, paletteFor(WeatherApi.category(p.code)), size = 32.dp)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    "${p.precipitationProbability}%",
+                    color = Color(0xFF376A9E),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(5.dp))
                 Text("${p.temp.toInt()}°", color = Color(0xFF23262F), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
@@ -1004,7 +1011,15 @@ fun DailyList(daily: List<DayPoint>) {
                     Text(WeatherApi.dayLabel(day.date, i), color = Color(0xFF23262F), fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     Text(WeatherApi.shortDate(day.date), color = Color(0xFF6B7080), fontSize = 12.sp)
                 }
-                WeatherGlyph(day.code, paletteFor(WeatherApi.category(day.code)), size = 30.dp)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    WeatherGlyph(day.code, paletteFor(WeatherApi.category(day.code)), size = 30.dp)
+                    Text(
+                        "${day.precipitationProbability}%",
+                        color = Color(0xFF376A9E),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
                 Text(WeatherApi.describe(day.code), color = Color(0xFF6B7080), fontSize = 13.sp, modifier = Modifier.weight(1f).padding(start = 12.dp))
                 Text("${day.minTemp.toInt()}°", color = Color(0xFF6B7080), fontSize = 14.sp)
                 Spacer(Modifier.width(8.dp))

@@ -5,8 +5,20 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-data class HourPoint(val hour: String, val temp: Double, val code: Int, val dateTime: java.time.LocalDateTime)
-data class DayPoint(val date: String, val maxTemp: Double, val minTemp: Double, val code: Int)
+data class HourPoint(
+    val hour: String,
+    val temp: Double,
+    val code: Int,
+    val dateTime: java.time.LocalDateTime,
+    val precipitationProbability: Int = 0
+)
+data class DayPoint(
+    val date: String,
+    val maxTemp: Double,
+    val minTemp: Double,
+    val code: Int,
+    val precipitationProbability: Int = 0
+)
 
 data class WeatherData(
     val cityName: String,
@@ -61,8 +73,8 @@ object WeatherApi {
             "https://api.open-meteo.com/v1/forecast" +
                 "?latitude=$lat&longitude=$lon" +
                 "&current=temperature_2m,weather_code,apparent_temperature,wind_speed_10m,wind_direction_10m,relative_humidity_2m,surface_pressure" +
-                "&hourly=temperature_2m,weather_code" +
-                "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
+                "&hourly=temperature_2m,weather_code,precipitation_probability" +
+                "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
                 "&forecast_days=7&timezone=auto"
         )
         val json = JSONObject(text)
@@ -80,13 +92,14 @@ object WeatherApi {
         val times = hourly.getJSONArray("time")
         val temps = hourly.getJSONArray("temperature_2m")
         val codes = hourly.getJSONArray("weather_code")
+        val precipitation = hourly.getJSONArray("precipitation_probability")
 
         val hourPoints = mutableListOf<HourPoint>()
         for (i in 0 until times.length()) {
             val timeStr = times.getString(i)
             val hourLabel = timeStr.substringAfter("T")
             val dt = java.time.LocalDateTime.parse(timeStr)
-            hourPoints.add(HourPoint(hourLabel, temps.getDouble(i), codes.getInt(i), dt))
+            hourPoints.add(HourPoint(hourLabel, temps.getDouble(i), codes.getInt(i), dt, precipitation.optInt(i, 0)))
         }
 
         val now = java.time.LocalDateTime.now()
@@ -99,10 +112,19 @@ object WeatherApi {
         val dMax = daily.getJSONArray("temperature_2m_max")
         val dMin = daily.getJSONArray("temperature_2m_min")
         val dCodes = daily.getJSONArray("weather_code")
+        val dPrecipitation = daily.getJSONArray("precipitation_probability_max")
 
         val dayPoints = mutableListOf<DayPoint>()
         for (i in 0 until dTimes.length()) {
-            dayPoints.add(DayPoint(dTimes.getString(i), dMax.getDouble(i), dMin.getDouble(i), dCodes.getInt(i)))
+            dayPoints.add(
+                DayPoint(
+                    dTimes.getString(i),
+                    dMax.getDouble(i),
+                    dMin.getDouble(i),
+                    dCodes.getInt(i),
+                    dPrecipitation.optInt(i, 0)
+                )
+            )
         }
 
         return WeatherData(cityName, currentTemp, currentCode, feelsLike, windSpeed, windDirection, humidity, pressure, futureHourPoints, dayPoints)
